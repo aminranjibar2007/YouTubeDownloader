@@ -1,0 +1,92 @@
+name: Run Irani Image Downloader
+
+on:
+  workflow_dispatch:
+
+jobs:
+  download_images:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests lxml colorama
+
+    - name: Run downloader script
+      run: |
+        mkdir -p files_irani
+        python - << 'EOF'
+import os.path
+import threading
+import time
+import colorama
+from os.path import basename
+
+from lxml import html
+import requests
+
+def downlaod(src : str, name):
+    if os.path.exists("./files_irani/" + name):
+        return
+    with open("./files_irani/" + name, "wb+") as f:
+        if src.endswith(".png"):
+            return
+        try:
+            response = requests.get(src).content
+        except requests.exceptions.RequestException as e:
+            print(colorama.Fore.RED + "error download " + name + colorama.Style.RESET_ALL)
+            return
+        f.write(response)
+        print(colorama.Fore.GREEN + name + " downloaded" + colorama.Style.RESET_ALL, end="\n")
+        # winsound removed for Linux environment
+
+def starter(i):
+    try:
+        if i == 0 or i == 1:
+            data_pages = requests.get("https://shahvani.com/photos/gallery/%d8%a7%db%8c%d8%b1%d8%a7%d9%86%db%8c")
+        else:
+            data_pages = requests.get(
+                f"https://shahvani.com/photos/gallery/%d8%a7%db%8c%d8%b1%d8%a7%d9%86%db%8c?page={i}")
+    except requests.exceptions.RequestException as e:
+        return
+
+    html_page = html.fromstring(data_pages.content)
+
+    count_page = html_page.xpath("//img")
+
+    for img in count_page:
+        src = "https://shahvani.com" + img.get("src")
+        name = basename(src)
+
+        threading.Thread(target=downlaod, args=(src, name)).start()
+
+    print(colorama.Fore.YELLOW + f"part {i} done" + colorama.Style.RESET_ALL)
+
+if __name__ == '__main__':
+
+    colorama.init()
+
+    text = f"|            {colorama.Fore.MAGENTA}Irani Kos Image Downloader :){colorama.Style.RESET_ALL}  {colorama.Fore.CYAN}v1.0.6{colorama.Style.RESET_ALL} by {colorama.Fore.RED}Color{colorama.Style.RESET_ALL}              |"
+    banner = "-" * (len(text) - 27)
+
+    print(f"""
+    {colorama.Fore.WHITE}{banner}{colorama.Style.RESET_ALL}
+    {text}
+    {colorama.Fore.WHITE}{banner}{colorama.Style.RESET_ALL}
+    """, end="\n \n")
+
+    if not os.path.exists("./files_irani"):
+        os.mkdir("./files_irani")
+
+    for i in range(900):
+
+        threading.Thread(target=starter, args=(i,)).start()
+
+        time.sleep(2.2)
+EOF
